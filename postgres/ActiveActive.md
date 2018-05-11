@@ -37,9 +37,7 @@
 	
 ### 正常数据写入流程
   ![monal](image/monal.png)
-
 ### 其中一个数据库服务down机
   ![server2-down](image/server2-down.png)
-  
-  ### 服务down机后恢复流程
+### 服务down机后恢复流程
   ![down机恢复](image/recover.png)
