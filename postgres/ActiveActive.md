@@ -1,7 +1,39 @@
-## Welcome to GitHub Pages
+# postgres双活设计
+## 背景
+ > 公司在实际项目上有主备机房donw机要求，既就是主机房down机后备机房自动工作。此过程不需要人工干预。对于一般的数据库方案来说无法满足需求。
+ ### 集群  
+   > 主要解决数据海量数据分布式存储和查询问题，一般要求[半数以上存活]集群才可用!
+### 主备 
+  > 主要解决数据灾备问题，将主数据库上的数据实时同步到备机房的数据库中，在主数据库出现异常的情况下可将备中心服务提升为主继续对外提供服务；
+   同时能实现读写分离，但是缺点是[故障恢复需要人工参与]。
+## 实现方案
 
-You can use the [editor on GitHub](https://github.com/LOVEGISER/storage.design/edit/master/README.md) to maintain and preview the content for your website in Markdown files.
+### 双活实现步骤
+> 
+1：在主备中心分别安装两个postgresql 数据库。  
+2：在主备中心分别建立ops_log表，用户记录数据库异常写操作。  
+		
+| Name | Description          |
+| ------------- | ----------- |
+| id      | 数据唯一标识|
+| serial_number     | 序列号 ，按照入库顺序自增 |
+| option_type | 操作类型[aad,delete,updat] |
+| data | json 格式的数据|
+|ip | 用于标识那个服务器上操作失败|
+| classType | 那个表的数据写入失败|
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
-
- 
+3：当数据写入的时候给多个数据库同时写入  
+4：如果写入某个服务写入失败，则将对应数据写入ops_log表。  
+5：系统定时监控数据库连接，一旦发现写入失败的数据库服务重新可用，则查询对应写入失败的写入日志，按照serial_number顺序批量同步失败数据到该数据库，同时将处理完成的log数据删除。  
+6：一直重复上面操作，知道异常数据恢复完毕，则将数据库状态设置为可用。   
+7：数据库状态分为可用，半可用（正在恢复数据），不可用三种状态。    
+8：当数据恢复完毕后该服务方可执行正常的双写操作，在数据恢复过程，既就是数据库处于半可用状态，数据的写入操作应当写入日志，不能直接写入。  
+		 
+### 双活说明  
+> 
+  1：主要适用于有主备down机的环境中。  
+  2：数据库操作压力不是很大，我们目前在数据中主要存储设备，围栏等基础信息。  
+  3：异常数据库的数据恢复可以定时检测，自动恢复； 也可根据用户需求在机房恢复的时候手动操作。
+	
+### 正常数据写入流程
+  ![这里写图片描述](image/monal.png)
